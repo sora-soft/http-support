@@ -1,0 +1,3 @@
+export enum HTTPErrorCode {
+  ERR_NO_AVAILABLE_PORT = 'ERR_NO_AVAILABLE_PORT',
+}
