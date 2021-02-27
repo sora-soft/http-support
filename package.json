@@ -4,8 +4,8 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsc --build --clean & tsc",
-    "prepublish": "tsc --build --clean & tsc",
+    "build": "rm -rf dist & tsc",
+    "prepublish": "rm -rf dist & tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/sora-soft/http-support#readme",
   "dependencies": {
-    "@sora-soft/framework": "^1.0.2",
+    "@sora-soft/framework": "^1.0.4",
     "koa": "^2.13.1",
     "uuid": "^8.3.2"
   },
