@@ -58,6 +58,11 @@ class HTTPListener extends Listener {
               const session = requestSession || uuid();
 
               const response = await listenerDataCallback(packet, session);
+              if (!response) {
+                ctx.body = {};
+                await next();
+                return;
+              }
               ctx.res.setHeader('Content-Type', 'application/json');
               for (const [header, content] of Object.entries(response.headers)) {
                 if (typeof content === 'string') {
@@ -67,7 +72,7 @@ class HTTPListener extends Listener {
               if (requestSession !== session) {
                 ctx.cookies.set('sora-http-session', session);
               }
-              ctx.body = JSON.stringify(response.payload);
+              ctx.body = JSON.stringify(response.payload || {});
               await next();
             } catch (err) {
               Runtime.frameLogger.error('listener.http', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});

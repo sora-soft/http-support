@@ -6,6 +6,7 @@
     "target": "ESNext",
     "outDir": "./dist",
     "sourceMap": true,
+    "inlineSources": true,
     "alwaysStrict": true,
     "downlevelIteration": true,
     "experimentalDecorators": true,

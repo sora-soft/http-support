@@ -4,14 +4,11 @@
   "description": "",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rm -rf dist & tsc",
-    "prepublish": "rm -rf dist & tsc",
+    "build": "rimraf ./dist && tsc",
+    "prepublishOnly": "rimraf ./dist && tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/sora-soft/http-support.git"
-  },
+  "repository": "git@github.com/sora-soft/http-support.git",
   "author": "yaya",
   "license": "WTFPL",
   "bugs": {
@@ -19,7 +16,7 @@
   },
   "homepage": "https://github.com/sora-soft/http-support#readme",
   "dependencies": {
-    "@sora-soft/framework": "^1.0.4",
+    "@sora-soft/framework": "^1.0.8",
     "koa": "^2.13.1",
     "uuid": "^8.3.2"
   },
@@ -32,6 +29,7 @@
     "@types/uuid": "^8.3.0",
     "assert": "^2.0.0",
     "mocha": "^8.3.0",
+    "rimraf": "^3.0.2",
     "ts-mocha": "^8.0.0",
     "ts-node": "^9.1.1",
     "tslint": "^6.1.3",
