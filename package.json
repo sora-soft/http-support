@@ -16,7 +16,7 @@
   },
   "homepage": "https://github.com/sora-soft/http-support#readme",
   "dependencies": {
-    "@sora-soft/framework": "^1.0.8",
+    "@sora-soft/framework": "^1.0.9",
     "koa": "^2.13.1",
     "uuid": "^8.3.2"
   },
