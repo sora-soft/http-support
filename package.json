@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rimraf ./dist && tsc",
     "prepublishOnly": "rimraf ./dist && tsc",
+    "link": "npm link @sora-soft/framework",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": "git@github.com/sora-soft/http-support.git",
@@ -16,7 +17,7 @@
   },
   "homepage": "https://github.com/sora-soft/http-support#readme",
   "dependencies": {
-    "@sora-soft/framework": "^1.0.9",
+    "@sora-soft/framework": "^1.0.10",
     "koa": "^2.13.1",
     "uuid": "^8.3.2"
   },

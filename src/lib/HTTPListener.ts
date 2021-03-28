@@ -45,8 +45,18 @@ class HTTPListener extends Listener {
           });
 
           const handleReq = async () => {
+            let payload: any;
+
             try {
-              const payload = JSON.parse(body);
+              payload = JSON.parse(body);
+            } catch (err) {
+              Runtime.frameLogger.debug('listener.http', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
+              ctx.body = { error: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED, message: 'ERR_RPC_BODY_PARSE_FAILED' };
+              resolve();
+              return;
+            }
+
+            try {
               const packet: IRawNetPacket = {
                 opcode: OPCode.REQUEST,
                 headers: req.headers,
