@@ -1,4 +1,4 @@
-import {Executor, ExError, IListenerInfo, IRawNetPacket, Listener, ListenerCallback, ListenerState, Logger, OPCode, RPCErrorCode, Runtime, Time, Utility} from '@sora-soft/framework';
+import {Executor, ExError, ILabels, IListenerInfo, IRawNetPacket, Listener, ListenerCallback, ListenerState, Logger, OPCode, RPCErrorCode, Runtime, Time, Utility} from '@sora-soft/framework';
 import http = require('http');
 import {HTTPError} from './HTTPError';
 import {HTTPErrorCode} from './HTTPErrorCode';
@@ -11,16 +11,18 @@ export interface IHTTPListenerOptions {
   portRange?: number[];
   port?: number;
   host: string;
+  labels?: ILabels;
 }
 
 class HTTPListener extends Listener {
-  constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, executor: Executor) {
-    super(callback, executor);
+  constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, executor: Executor, labels: ILabels = {}) {
+    super(callback, executor, labels);
 
     this.options_ = options;
 
     this.koa_ = koa;
     this.httpServer_ = http.createServer(this.koa_.callback());
+    this.usePort_ = 0;
     this.installKoa();
   }
 
@@ -29,14 +31,15 @@ class HTTPListener extends Listener {
       id: this.id,
       protocol: 'http',
       endpoint: `${this.options_.host}:${this.usePort_}`,
-      state: this.state
+      state: this.state,
+      labels: this.labels
     }
   }
 
   private installKoa() {
     this.koa_.use(async (ctx, next) => {
       await this.handleMessage(async (listenerDataCallback) => {
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           const req = ctx.req;
           let body = '';
 
@@ -51,7 +54,15 @@ class HTTPListener extends Listener {
               payload = JSON.parse(body);
             } catch (err) {
               Runtime.frameLogger.debug('listener.http', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
-              ctx.body = { error: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED, message: 'ERR_RPC_BODY_PARSE_FAILED' };
+              ctx.body = {
+                error: {
+                  code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                  level: err.level,
+                  message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                  name: err.name,
+                },
+                result: null
+              };
               resolve();
               return;
             }
@@ -86,7 +97,15 @@ class HTTPListener extends Listener {
               await next();
             } catch (err) {
               Runtime.frameLogger.error('listener.http', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});
-              ctx.body = { error: err.code || RPCErrorCode.ERR_RPC_UNKNOWN, message: err.message };
+              ctx.body = {
+                error: {
+                  code: err.code || RPCErrorCode.ERR_RPC_UNKNOWN,
+                  level: err.level,
+                  message: err.message,
+                  name: err.name,
+                },
+                result: null
+              }
             }
             resolve();
           };
@@ -113,6 +132,7 @@ class HTTPListener extends Listener {
       id: this.id,
       protocol: 'http',
       endpoint: `${this.options_.host}:${this.usePort_}`,
+      labels: this.labels,
     }
   }
 
