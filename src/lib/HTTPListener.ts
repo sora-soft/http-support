@@ -7,6 +7,8 @@ import Koa = require('koa');
 import path = require('path');
 import {v4 as uuid} from 'uuid';
 
+const pkg = require('../../package.json');
+
 export interface IHTTPListenerOptions {
   portRange?: number[];
   port?: number;
@@ -34,6 +36,10 @@ class HTTPListener extends Listener {
       state: this.state,
       labels: this.labels
     }
+  }
+
+  get version () {
+    return pkg.version;
   }
 
   private installKoa() {
