@@ -7,6 +7,7 @@ import Koa = require('koa');
 import path = require('path');
 import {v4 as uuid} from 'uuid';
 
+// tslint:disable-next-line
 const pkg = require('../../package.json');
 
 export interface IHTTPListenerOptions {
@@ -32,7 +33,7 @@ class HTTPListener extends Listener {
     return {
       id: this.id,
       protocol: 'http',
-      endpoint: `${this.options_.host}:${this.usePort_}`,
+      endpoint: `http://${this.options_.host}:${this.usePort_}`,
       state: this.state,
       labels: this.labels
     }
@@ -137,7 +138,7 @@ class HTTPListener extends Listener {
     return {
       id: this.id,
       protocol: 'http',
-      endpoint: `${this.options_.host}:${this.usePort_}`,
+      endpoint: `http://${this.options_.host}:${this.usePort_}`,
       labels: this.labels,
     }
   }
@@ -181,6 +182,10 @@ class HTTPListener extends Listener {
 
   protected async shutdown() {
     await util.promisify(this.httpServer_.close.bind(this.httpServer_))();
+  }
+
+  get httpServer() {
+    return this.httpServer_;
   }
 
   private httpServer_: http.Server;
