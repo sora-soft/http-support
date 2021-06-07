@@ -57,6 +57,11 @@ class HTTPListener extends Listener {
           const handleReq = async () => {
             let payload: any;
 
+            if (ctx.method !== 'POST') {
+              resolve();
+              return;
+            }
+
             try {
               payload = JSON.parse(body);
             } catch (err) {
