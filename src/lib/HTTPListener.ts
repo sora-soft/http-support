@@ -57,7 +57,14 @@ class HTTPListener extends Listener {
           const handleReq = async () => {
             let payload: any;
 
+            if (ctx.method === 'OPTIONS') {
+              ctx.response.status = 200;
+              resolve();
+              return;
+            }
+
             if (ctx.method !== 'POST') {
+              ctx.response.status = 405;
               resolve();
               return;
             }
