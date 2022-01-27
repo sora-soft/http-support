@@ -1,11 +1,10 @@
-import {Executor, ExError, ILabels, IRawNetPacket, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
-import http = require('http');
-import io = require('socket.io');
-import {HTTPError} from './HTTPError';
-import {HTTPErrorCode} from './HTTPErrorCode';
-import util = require('util');
-import cookie = require('cookie');
+import {Executor, ExError, ILabels, IRawNetPacket, Listener, ListenerCallback, ListenerEvent, ListenerState, Logger, OPCode, Runtime, Time, Utility} from '@sora-soft/framework';
 import {v4 as uuid} from 'uuid';
+import http = require('http');
+import util = require('util');
+import * as WebSocket from 'ws';
+import {EventEmitter} from 'events';
+import {HTTPError, HTTPErrorCode} from '..';
 
 // tslint:disable-next-line
 const pkg = require('../../package.json');
@@ -16,54 +15,76 @@ export interface IWebSocketListenerOptions {
   host: string;
   entryPath: string;
   labels?: ILabels;
+  exposeHost?: string;
 }
 
 class WebSocketListener extends Listener {
-  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, executor: Executor, httpServer?: http.Server, labels: ILabels = {}) {
+  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, executor: Executor, httpServer?: http.Server | null, labels: ILabels = {}) {
     super(callback, executor, labels);
 
     this.options_ = options;
     this.httpServer_ = httpServer || http.createServer();
     this.usePort_ = 0;
+    this.socketMap_ = new Map();
+    this.connectionEmitter_ = new EventEmitter();
+  }
+
+  get exposeHost() {
+    return this.options_.exposeHost || this.options_.host;
   }
 
   get metaData() {
     return {
       id: this.id,
       protocol: 'ws',
-      endpoint: `ws://${this.options_.host}:${this.usePort_}${this.options_.entryPath}`,
+      endpoint: `ws://${this.exposeHost}:${this.usePort_}${this.options_.entryPath}`,
       state: this.state,
-      labels: this.labels
+      labels: this.labels,
     }
   }
 
+  getSocket(session: string) {
+    return this.socketMap_.get(session);
+  }
+
   protected async listen() {
-    this.socketServer_ = new io.Server(this.httpServer_, {
-      path: this.options_.entryPath
-    });
+    this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
 
-    this.socketServer_.on('connect', (socket) => {
-      const cookies = cookie.parse(socket.request.headers.cookie || '');
-      const requestSession = cookies['sora-http-session'];
+    this.socketServer_.on('connection', (socket, request) => {
+      const session = uuid();
 
-      const session = requestSession || uuid();
+      this.socketMap_.set(session, socket);
 
-      if (session !== requestSession)
-        socket.handshake.headers.cookie = cookie.serialize('sora-http-session', session);
+      socket.on('close', () => {
+        this.socketMap_.delete(session);
+      });
 
-      socket.on('message', async (packet: IRawNetPacket) => {
+      socket.on('message', async (buffer) => {
+        const str = buffer.toString();
+        let packet: IRawNetPacket | null = null;
+        try {
+          packet = JSON.parse(str);
+        } catch (err) {
+          Runtime.frameLogger.debug('listener.web-socket', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
+        }
+
+        if (!packet)
+          return;
+
         await this.handleMessage(async (listenerDataCallback) => {
           try {
-            const response = await listenerDataCallback(packet, session);
+            const response = await listenerDataCallback(packet as IRawNetPacket, session);
             if (response) {
-              socket.send(response);
+              socket.send(JSON.stringify(response));
             }
           } catch (err) {
-            Runtime.frameLogger.error('listener.websocket', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});
+            Runtime.frameLogger.error('listener.web-socket', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});
           }
         });
       });
-    })
+
+      this.connectionEmitter_.emit(ListenerEvent.NewConnect, session, socket);
+    });
 
     if (this.options_.portRange)
       await this.listenRange(this.options_.portRange[0], this.options_.portRange[1]);
@@ -76,12 +97,7 @@ class WebSocketListener extends Listener {
 
     this.httpServer_.on('error', this.onServerError.bind(this));
 
-    return {
-      id: this.id,
-      protocol: 'ws',
-      endpoint: `ws://${this.options_.host}:${this.usePort_}${this.options_.entryPath}`,
-      labels: this.labels,
-    }
+    return this.metaData;
   }
 
   protected async shutdown() {
@@ -130,7 +146,8 @@ class WebSocketListener extends Listener {
 
   private options_: IWebSocketListenerOptions;
   private httpServer_: http.Server;
-  private socketServer_: io.Server;
+  private socketServer_: WebSocket.Server | null;
+  private socketMap_: Map<string, WebSocket>;
   private usePort_: number;
 }
 

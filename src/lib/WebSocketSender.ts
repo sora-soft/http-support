@@ -1,5 +1,5 @@
 import {IListenerInfo, IRawNetPacket, Logger, OPCode, Provider, RPCError, RPCErrorCode, Runtime, Sender, SenderState} from '@sora-soft/framework';
-import {io, Socket} from 'socket.io-client';
+import * as WebSocket from 'ws';
 
 class WebSocketSender extends Sender {
   static register() {
@@ -8,11 +8,13 @@ class WebSocketSender extends Sender {
     });
   }
 
-  constructor(listenerId: string, targetId: string, socket?: Socket, endpoint?: string) {
+  constructor(listenerId: string, targetId: string, socket?: WebSocket, endpoint?: string)
+  constructor(listenerId: string, targetId: string, socket: WebSocket, endpoint: string) {
     super(listenerId, targetId);
     if (socket) {
+      this.reconnect_ = false;
       this.socket_ = socket;
-      this.bindSocketEvent();
+      this.bindSocketEvent(this.socket_);
       this.lifeCycle_.setState(SenderState.READY);
       this.listenInfo_ = {
         id: listenerId,
@@ -20,35 +22,47 @@ class WebSocketSender extends Sender {
         endpoint,
         labels: {},
       };
+    } else {
+      this.reconnect_ = true;
     }
+    this.reconnectAttempt_ = 0;
   }
 
   async connect(listenInfo: IListenerInfo) {
     const url = new URL(listenInfo.endpoint);
-    this.socket_ = io(url.origin, {
+    this.socket_ = new WebSocket(url.origin, {
       path: url.pathname
     });
-
-    this.bindSocketEvent();
-    this.socket_.connect();
+    this.bindSocketEvent(this.socket_);
+    await this.waitUntilOpen(this.socket_);
     Runtime.frameLogger.info('sender', {event: 'websocket-sender-connect', endpoint: listenInfo.endpoint});
   }
 
   async disconnect() {
     // 由客户端主动断开tcp连接
     if (this.socket_)
-      this.socket_.disconnect();
+      this.socket_.close();
     this.socket_ = null;
   }
 
-  async send(request: IRawNetPacket) {
+  async send(packet: IRawNetPacket) {
     if (!this.isAvailable())
       throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.listenInfo_.endpoint}`);
-    this.socket_.send(request);
+
+    this.socket_!.send(JSON.stringify(packet));
   }
 
-  bindSocketEvent() {
-    this.socket_.on('message', (packet: IRawNetPacket) => {
+  async waitUntilOpen(socket: WebSocket) {
+    return new Promise<void>((resolve) => {
+      socket.on('open', () => {
+        this.reconnectAttempt_ = 0;
+        resolve();
+      });
+    });
+  }
+
+  bindSocketEvent(socket: WebSocket) {
+    socket.on('message', (packet: IRawNetPacket) => {
       switch (packet.opcode) {
         case OPCode.RESPONSE:
           this.emitRPCResponse(packet);
@@ -64,19 +78,24 @@ class WebSocketSender extends Sender {
           break;
       }
     });
-    this.socket_.on('reconnect_attempt', (attempt: number) => {
-      Runtime.frameLogger.info('sender.websocket', { event: 'sender-reconnect-attempt', attempt, });
-    });
-    this.socket_.on('reconnect', () => {
-      Runtime.frameLogger.success('sender.websocket', { event: 'sender-reconnect-success' });
+    socket.on('close', () => {
+      if (!this.reconnect_) {
+        this.off();
+      } else {
+        this.reconnectAttempt_ ++;
+        Runtime.frameLogger.info('sender.websocket', { event: 'sender-reconnect-attempt', attempt: this.reconnectAttempt_ });
+        this.connect(this.listenInfo_);
+      }
     });
   }
 
   isAvailable() {
-    return this.socket_ && this.socket_.connected;
+    return !!(this.socket_ && this.socket_.readyState === WebSocket.OPEN);
   }
 
-  private socket_: Socket;
+  private socket_: WebSocket | null;
+  private reconnect_: boolean;
+  private reconnectAttempt_: number;
 }
 
 export {WebSocketSender}
