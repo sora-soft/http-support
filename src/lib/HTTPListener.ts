@@ -15,6 +15,7 @@ export interface IHTTPListenerOptions {
   port?: number;
   host: string;
   labels?: ILabels;
+  expose?: string;
 }
 
 class HTTPListener extends Listener {
@@ -33,10 +34,17 @@ class HTTPListener extends Listener {
     return {
       id: this.id,
       protocol: 'http',
-      endpoint: `http://${this.options_.host}:${this.usePort_}`,
+      endpoint: this.endpoint,
       state: this.state,
       labels: this.labels
     }
+  }
+
+  get endpoint() {
+    if (this.options_.expose) {
+      return `http://${this.options_.expose}:${this.usePort_}`;
+    }
+    return `http://${this.options_.host}:${this.usePort_}`;
   }
 
   get version () {
@@ -150,7 +158,7 @@ class HTTPListener extends Listener {
     return {
       id: this.id,
       protocol: 'http',
-      endpoint: `http://${this.options_.host}:${this.usePort_}`,
+      endpoint: this.endpoint,
       labels: this.labels,
     }
   }
