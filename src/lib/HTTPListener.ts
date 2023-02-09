@@ -6,6 +6,7 @@ import util = require('util');
 import Koa = require('koa');
 import path = require('path');
 import {v4 as uuid} from 'uuid';
+import {HTTPConnector} from './HTTPConnector';
 
 // tslint:disable-next-line
 const pkg = require('../../package.json');
@@ -19,8 +20,8 @@ export interface IHTTPListenerOptions {
 }
 
 class HTTPListener extends Listener {
-  constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, executor: Executor, labels: ILabels = {}) {
-    super(callback, executor, labels);
+  constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, labels: ILabels = {}) {
+    super(callback, labels);
 
     this.options_ = options;
 
@@ -53,93 +54,14 @@ class HTTPListener extends Listener {
 
   private installKoa() {
     this.koa_.use(async (ctx, next) => {
-      await this.handleMessage(async (listenerDataCallback) => {
-        return new Promise<void>((resolve, reject) => {
-          const req = ctx.req;
-          let body = '';
+      const requestSession = ctx.cookies.get('sora-http-session');
+      const session = requestSession || ctx.headers['sora-http-session'] as string || uuid();
 
-          req.on('data', (chunk) => {
-            body += chunk;
-          });
+      const connector = new HTTPConnector(ctx);
+      this.newConnector(session, connector);
 
-          const handleReq = async () => {
-            let payload: any;
-
-            if (ctx.method === 'OPTIONS') {
-              ctx.response.status = 200;
-              resolve();
-              return;
-            }
-
-            if (ctx.method !== 'POST') {
-              ctx.response.status = 405;
-              resolve();
-              return;
-            }
-
-            try {
-              payload = JSON.parse(body);
-            } catch (err) {
-              Runtime.frameLogger.debug('listener.http', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
-              ctx.body = {
-                error: {
-                  code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-                  level: err.level,
-                  message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-                  name: err.name,
-                },
-                result: null
-              };
-              resolve();
-              return;
-            }
-
-            try {
-              const packet: IRawNetPacket = {
-                opcode: OPCode.REQUEST,
-                headers: req.headers,
-                method: path.basename(req.url),
-                payload,
-                path: req.url
-              };
-              const requestSession = ctx.cookies.get('sora-http-session');
-              const session = requestSession || uuid();
-
-              const response = await listenerDataCallback(packet, session);
-              if (!response) {
-                ctx.body = {};
-                await next();
-                return;
-              }
-              ctx.res.setHeader('Content-Type', 'application/json');
-              for (const [header, content] of Object.entries(response.headers)) {
-                if (typeof content === 'string') {
-                  ctx.res.setHeader(header, content);
-                }
-              }
-              if (requestSession !== session) {
-                ctx.cookies.set('sora-http-session', session);
-              }
-              ctx.body = JSON.stringify(response.payload || {});
-              await next();
-            } catch (err) {
-              Runtime.frameLogger.error('listener.http', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});
-              ctx.body = {
-                error: {
-                  code: err.code || RPCErrorCode.ERR_RPC_UNKNOWN,
-                  level: err.level,
-                  message: err.message,
-                  name: err.name,
-                },
-                result: null
-              }
-            }
-            resolve();
-          };
-
-          req.on('end', handleReq);
-        });
-      });
+      await connector.promise;
+      next();
     });
   }
 

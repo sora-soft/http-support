@@ -10,7 +10,13 @@
     "alwaysStrict": true,
     "downlevelIteration": true,
     "experimentalDecorators": true,
-    "emitDecoratorMetadata": true
+    "emitDecoratorMetadata": true,
+    "strictNullChecks": true,
+    "plugins": [{
+      "transform": "typescript-is/lib/transform-inline/transformer"
+    }, {
+      "name": "typescript-tslint-plugin"
+    }]
   },
   "include": [
     "./src/**/*"

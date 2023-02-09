@@ -1,10 +1,10 @@
-import {Executor, ExError, ILabels, IRawNetPacket, Listener, ListenerCallback, ListenerEvent, ListenerState, Logger, OPCode, Runtime, Time, Utility} from '@sora-soft/framework';
+import {ConnectorCommand, Executor, ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
 import {v4 as uuid} from 'uuid';
 import http = require('http');
 import util = require('util');
 import * as WebSocket from 'ws';
 import {EventEmitter} from 'events';
-import {HTTPError, HTTPErrorCode} from '..';
+import {HTTPError, HTTPErrorCode, WebSocketConnector} from '..';
 
 // tslint:disable-next-line
 const pkg = require('../../package.json');
@@ -19,8 +19,8 @@ export interface IWebSocketListenerOptions {
 }
 
 class WebSocketListener extends Listener {
-  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, executor: Executor, httpServer?: http.Server | null, labels: ILabels = {}) {
-    super(callback, executor, labels);
+  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, httpServer?: http.Server | null, labels: ILabels = {}) {
+    super(callback, labels);
 
     this.options_ = options;
     this.httpServer_ = httpServer || http.createServer();
@@ -51,39 +51,14 @@ class WebSocketListener extends Listener {
     this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
 
     this.socketServer_.on('connection', (socket, request) => {
+      if (this.state !== ListenerState.READY) {
+        socket.close();
+        return;
+      }
+
       const session = uuid();
-
-      this.socketMap_.set(session, socket);
-
-      socket.on('close', () => {
-        this.socketMap_.delete(session);
-      });
-
-      socket.on('message', async (buffer) => {
-        const str = buffer.toString();
-        let packet: IRawNetPacket | null = null;
-        try {
-          packet = JSON.parse(str);
-        } catch (err) {
-          Runtime.frameLogger.debug('listener.web-socket', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
-        }
-
-        if (!packet)
-          return;
-
-        await this.handleMessage(async (listenerDataCallback) => {
-          try {
-            const response = await listenerDataCallback(packet as IRawNetPacket, session);
-            if (response) {
-              socket.send(JSON.stringify(response));
-            }
-          } catch (err) {
-            Runtime.frameLogger.error('listener.web-socket', err, { event: 'event-handle-rpc', error: Logger.errorMessage(err)});
-          }
-        });
-      });
-
-      this.connectionEmitter_.emit(ListenerEvent.NewConnect, session, socket);
+      const connector = new WebSocketConnector(socket, request.socket.remoteAddress);
+      this.newConnector(session, connector);
     });
 
     if (this.options_.portRange)
@@ -101,6 +76,10 @@ class WebSocketListener extends Listener {
   }
 
   protected async shutdown() {
+    for (const [_, connector] of this.connectors_.entries()) {
+      await connector.sendCommand(ConnectorCommand.off, {reason: 'listener-shutdown'});
+    }
+    // 要等所有 socket 由对方关闭
     await util.promisify(this.httpServer_.close.bind(this.httpServer_))();
     this.socketServer_ = null;
   }
