@@ -14,7 +14,6 @@ class WebSocketConnector extends Connector {
   constructor(socket?: WebSocket, endpoint?: string) {
     super({ping: {enabled: true}});
     if (socket && endpoint) {
-      this.initiative_ = false;
       this.socket_ = socket;
       this.bindSocketEvent(this.socket_);
       this.lifeCycle_.setState(ConnectorState.READY);
@@ -23,8 +22,6 @@ class WebSocketConnector extends Connector {
         endpoint,
         labels: {},
       };
-    } else {
-      this.initiative_ = true;
     }
   }
 
@@ -35,18 +32,13 @@ class WebSocketConnector extends Connector {
     };
   }
 
-  protected async connect(listenInfo: IListenerInfo, reconnect = false) {
+  protected async connect(listenInfo: IListenerInfo) {
     if (this.isAvailable())
-      return;
-
-    if (!this.initiative_) {
-      this.off();
-      return;
-    }
+      return false;
 
     const retry = new Retry(async () => {
       return new Promise<void>((resolve, reject) => {
-        Runtime.frameLogger.info('connector.websocket', {event: reconnect ? 'connector-reconnect' : 'connector-connect', endpoint: listenInfo.endpoint});
+        Runtime.frameLogger.info('connector.websocket', {event: 'connector-connect', endpoint: listenInfo.endpoint});
         this.socket_ = new WebSocket(listenInfo.endpoint);
         const handlerError = (err: Error) => {
           reject(err)
@@ -76,6 +68,7 @@ class WebSocketConnector extends Connector {
     this.reconnectJob_ = retry;
     await retry.doJob();
     this.reconnectJob_ = null;
+    return true;
   }
 
    protected async disconnect() {
@@ -103,33 +96,17 @@ class WebSocketConnector extends Connector {
     this.socket_!.send(JSON.stringify(packet));
   }
 
-  private async reconnect_() {
-    await this.connect(this.target_, true).then(() => {
-      this.lifeCycle_.setState(ConnectorState.READY);
-    }).catch((err: Error) => {
-      this.lifeCycle_.setState(ConnectorState.ERROR, err);
-    });
-  }
-
   private onSocketError(socket: WebSocket) {
-    return (err: Error) => {
+    return async (err: Error) => {
       if (this.socket_ !== socket)
         return;
 
       if (this.socket_) {
         this.socket_.removeAllListeners();
-
-        if (!this.initiative_) {
-          this.destory();
-          return;
-        }
       }
 
       this.socket_ = null;
-      if (this.lifeCycle_.state === ConnectorState.READY) {
-        this.lifeCycle_.setState(ConnectorState.RECONNECTING, err);
-        this.reconnect_();
-      }
+      this.off();
       return;
     }
   }
@@ -161,7 +138,6 @@ class WebSocketConnector extends Connector {
   }
 
   private socket_: WebSocket | null;
-  private initiative_ = true;
   private reconnectJob_: Retry<void> | null;
 }
 

@@ -46,6 +46,7 @@ class HTTPConnector extends Connector {
       baseURL: `${listenInfo.protocol}://${listenInfo.endpoint}`,
       withCredentials: true,
     });
+    return true;
   }
 
   protected async disconnect(): Promise<void> {
@@ -181,7 +182,7 @@ class HTTPConnector extends Connector {
 
   private async endCtx() {
     this.endCallback_();
-    this.destory();
+    this.off();
   }
 
   get promise() {
