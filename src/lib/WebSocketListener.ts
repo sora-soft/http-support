@@ -77,7 +77,7 @@ class WebSocketListener extends Listener {
 
   protected async shutdown() {
     for (const [_, connector] of this.connectors_.entries()) {
-      await connector.sendCommand(ConnectorCommand.off, {reason: 'listener-shutdown'});
+      await connector.sendCommand(ConnectorCommand.OFF, {reason: 'listener-shutdown'});
     }
     // 要等所有 socket 由对方关闭
     await util.promisify(this.httpServer_.close.bind(this.httpServer_))();
