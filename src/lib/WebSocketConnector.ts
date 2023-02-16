@@ -82,7 +82,7 @@ class WebSocketConnector extends Connector {
     this.socket_ = null;
   }
 
-  protected async sendRaw(packet: Object): Promise<void> {
+  async sendRaw(packet: Object): Promise<void> {
     if (!this.isAvailable())
       throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
 

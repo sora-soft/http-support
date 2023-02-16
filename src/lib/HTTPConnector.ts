@@ -53,7 +53,7 @@ class HTTPConnector extends Connector {
     this.client_ = null;
   }
 
-  protected async sendRaw(packet: Object) {
+  async sendRaw(packet: Object) {
     if (this.ctx_) {
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.body = JSON.stringify(packet || {});
