@@ -41,12 +41,12 @@ class HTTPConnector extends Connector {
     return true;
   }
 
-  protected async connect(listenInfo: IListenerInfo, reconnect = false) {
+  protected async connect(listenInfo: IListenerInfo) {
     this.client_ = axios.create({
       baseURL: `${listenInfo.protocol}://${listenInfo.endpoint}`,
       withCredentials: true,
     });
-    return true;
+    return;
   }
 
   protected async disconnect(): Promise<void> {
@@ -62,13 +62,14 @@ class HTTPConnector extends Connector {
     }
   }
 
-  protected async send(packet: IRawNetPacket) {
+  async send(packet: IRawNetPacket) {
     if (this.ctx_) {
       if (!is<IRawResPacket<any>>(packet)) {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, `ERR_HTTP_NOT_SUPPORT_SEND_REQUEST`);
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.cookies.set('sora-http-session', this.session);
+      this.ctx_.res.setHeader('sora-http-session', this.session);
       for (const [header, content] of Object.entries(packet.headers)) {
         if (typeof content === 'string') {
           this.ctx_.res.setHeader(header, content);

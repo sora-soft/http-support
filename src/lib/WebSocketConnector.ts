@@ -1,4 +1,5 @@
-import {Connector, ConnectorCommand, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, IRawResPacket, Logger, NodeTime, OPCode, Provider, Retry, RetryEvent, RPCError, RPCErrorCode, RPCSender, Runtime} from '@sora-soft/framework';
+import {Connector, AbortError, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, IRawResPacket, Logger, NodeTime, OPCode, Provider, Retry, RetryEvent, RPCError, RPCErrorCode, RPCSender, Runtime} from '@sora-soft/framework';
+import {Context} from '@sora-soft/framework/dist/lib/Context';
 import {is} from 'typescript-is';
 import * as WebSocket from 'ws';
 
@@ -32,13 +33,17 @@ class WebSocketConnector extends Connector {
     };
   }
 
-  protected async connect(listenInfo: IListenerInfo) {
+  protected async connect(listenInfo: IListenerInfo, context: Context) {
     if (this.isAvailable())
-      return false;
+      return;
 
-    const retry = new Retry(async () => {
+    const retry = new Retry(async (ctx) => {
       return new Promise<void>((resolve, reject) => {
         Runtime.frameLogger.info('connector.websocket', {event: 'connector-connect', endpoint: listenInfo.endpoint});
+        ctx.signal.addEventListener('abort', () => {
+          reject(new AbortError());
+        });
+
         this.socket_ = new WebSocket(listenInfo.endpoint);
         const handlerError = (err: Error) => {
           reject(err)
@@ -65,16 +70,10 @@ class WebSocketConnector extends Connector {
       Runtime.frameLogger.error('connector.websocket', err, {event: 'connector-on-error', error: Logger.errorMessage(err), nextRetry});
     });
 
-    this.reconnectJob_ = retry;
-    await retry.doJob();
-    this.reconnectJob_ = null;
-    return true;
+    await retry.doJob(context);
   }
 
    protected async disconnect() {
-    if (this.reconnectJob_) {
-      this.reconnectJob_.cancel();
-    }
     if (this.socket_) {
       this.socket_.removeAllListeners();
       this.socket_.close();
@@ -89,7 +88,7 @@ class WebSocketConnector extends Connector {
     this.socket_!.send(JSON.stringify(packet));
   }
 
-  protected async send(packet: IRawNetPacket) {
+  async send(packet: IRawNetPacket) {
     if (!this.isAvailable())
       throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
 
@@ -138,7 +137,6 @@ class WebSocketConnector extends Connector {
   }
 
   private socket_: WebSocket | null;
-  private reconnectJob_: Retry<void> | null;
 }
 
 export {WebSocketConnector}
