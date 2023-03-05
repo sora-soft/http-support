@@ -6,20 +6,18 @@
     "target": "ESNext",
     "outDir": "./dist",
     "sourceMap": true,
-    "inlineSources": true,
+    "strictNullChecks": true,
     "alwaysStrict": true,
     "downlevelIteration": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
-    "strictNullChecks": true,
     "plugins": [{
       "transform": "typescript-is/lib/transform-inline/transformer"
-    }, {
-      "name": "typescript-tslint-plugin"
     }]
   },
   "include": [
-    "./src/**/*"
+    "./src/**/*",
+    "./.eslintrc.js"
   ],
   "exclude": [
     "dist",

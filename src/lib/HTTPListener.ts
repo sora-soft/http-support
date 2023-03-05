@@ -1,15 +1,14 @@
-import {Executor, ExError, ILabels, IListenerInfo, IRawNetPacket, Listener, ListenerCallback, ListenerState, Logger, OPCode, RPCErrorCode, Runtime, Time, Utility} from '@sora-soft/framework';
+import {ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
 import http = require('http');
 import {HTTPError} from './HTTPError';
 import {HTTPErrorCode} from './HTTPErrorCode';
 import util = require('util');
 import Koa = require('koa');
-import path = require('path');
 import {v4 as uuid} from 'uuid';
 import {HTTPConnector} from './HTTPConnector';
 
-// tslint:disable-next-line
-const pkg = require('../../package.json');
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
+const pkg: {version: string} = require('../../package.json');
 
 export interface IHTTPListenerOptions {
   portRange?: number[];
@@ -38,7 +37,7 @@ class HTTPListener extends Listener {
       endpoint: this.endpoint,
       state: this.state,
       labels: this.labels
-    }
+    };
   }
 
   get endpoint() {
@@ -61,7 +60,7 @@ class HTTPListener extends Listener {
       this.newConnector(session, connector);
 
       await connector.promise;
-      next();
+      await next();
     });
   }
 
@@ -72,9 +71,11 @@ class HTTPListener extends Listener {
     if (this.options_.port) {
       this.usePort_ = this.options_.port;
 
-      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_))(this.usePort_, this.options_.host);
+      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
 
-      this.httpServer_.on('error', this.onServerError.bind(this));
+      this.httpServer_.on('error', (err: ExError) => {
+        this.onServerError(err);
+      });
     }
 
     return {
@@ -82,11 +83,11 @@ class HTTPListener extends Listener {
       protocol: 'http',
       endpoint: this.endpoint,
       labels: this.labels,
-    }
+    };
   }
 
   private onServerError(err: Error) {
-    this.lifeCycle_.setState(ListenerState.ERROR, err);
+    this.lifeCycle_.setState(ListenerState.ERROR, err).catch(Utility.null);
     Runtime.frameLogger.error('listener.http', err, {event: 'http-server-on-error', error: Logger.errorMessage(err)});
   }
 
@@ -97,7 +98,7 @@ class HTTPListener extends Listener {
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
           if (this.usePort_ + 5 > max) {
-            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, `ERR_NO_AVAILABLE_PORT`));
+            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, 'ERR_NO_AVAILABLE_PORT'));
           }
 
           this.usePort_ = this.usePort_ + Utility.randomInt(0, 5);
@@ -107,14 +108,16 @@ class HTTPListener extends Listener {
         } else {
           throw err;
         }
-      }
+      };
 
       this.httpServer_.on('error', onError);
 
       this.httpServer_.once('listening', () => {
         this.httpServer_.removeListener('error', onError);
 
-        this.httpServer_.on('error', this.onServerError.bind(this));
+        this.httpServer_.on('error', (err: ExError) => {
+          this.onServerError(err);
+        });
         resolve();
       });
 
@@ -123,7 +126,7 @@ class HTTPListener extends Listener {
   }
 
   protected async shutdown() {
-    await util.promisify(this.httpServer_.close.bind(this.httpServer_))();
+    await util.promisify(this.httpServer_.close.bind(this.httpServer_) as () => void)();
   }
 
   get httpServer() {
@@ -136,4 +139,4 @@ class HTTPListener extends Listener {
   private usePort_: number;
 }
 
-export {HTTPListener}
+export {HTTPListener};

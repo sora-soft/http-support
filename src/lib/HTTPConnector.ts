@@ -1,4 +1,4 @@
-import {Connector, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, Logger, OPCode, Provider, Response, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime} from '@sora-soft/framework';
+import {Connector, ConnectorState, ExError, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, IResPayloadPacket, Logger, OPCode, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime, Utility} from '@sora-soft/framework';
 import axios, {AxiosInstance} from 'axios';
 import Koa = require('koa');
 import path = require('path');
@@ -11,8 +11,8 @@ export type KOAContext = Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultC
 
 class HTTPConnector extends Connector {
   static register() {
-    Provider.registerSender('http', (listenerId: string, targetId: string) => {
-      return new RPCSender(listenerId, targetId, new HTTPConnector());
+    Runtime.pvdManager.registerSender('http', (listenerId: string, targetId: string, weight) => {
+      return new RPCSender(listenerId, targetId, new HTTPConnector(), weight);
     });
   }
 
@@ -23,7 +23,7 @@ class HTTPConnector extends Connector {
     if (ctx) {
       this.ctx_ = ctx;
 
-      this.lifeCycle_.setState(ConnectorState.READY);
+      this.lifeCycle_.setState(ConnectorState.READY).catch(Utility.null);
       this.target_ = {
         protocol: 'http',
         endpoint: `${ctx.request.ip}`,
@@ -33,7 +33,7 @@ class HTTPConnector extends Connector {
       this.handleCtx(ctx);
       this.ctxPromise_ = new Promise<void>((resolve) => {
         this.endCallback_ = resolve;
-      })
+      });
     }
   }
 
@@ -58,14 +58,14 @@ class HTTPConnector extends Connector {
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.body = JSON.stringify(packet || {});
     } else {
-      throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_RAW, `ERR_HTTP_NOT_SUPPORT_RAW`);
+      throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_RAW, 'ERR_HTTP_NOT_SUPPORT_RAW');
     }
   }
 
   async send(packet: IRawNetPacket) {
     if (this.ctx_) {
-      if (!is<IRawResPacket<any>>(packet)) {
-        throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, `ERR_HTTP_NOT_SUPPORT_SEND_REQUEST`);
+      if (!is<IRawResPacket<unknown>>(packet)) {
+        throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, 'ERR_HTTP_NOT_SUPPORT_SEND_REQUEST');
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.cookies.set('sora-http-session', this.session);
@@ -82,7 +82,7 @@ class HTTPConnector extends Connector {
       }
 
       if (!is<IRawReqPacket>(packet)) {
-        throw new HTTPError(HTTPErrorCode.ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST, `ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST`);
+        throw new HTTPError(HTTPErrorCode.ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST, 'ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST');
       }
 
       const headers = packet.headers;
@@ -108,22 +108,22 @@ class HTTPConnector extends Connector {
           }
         } else {
           const newCookie = cookie.parse(res.headers['set-cookie']);
-            if (newCookie['sora-http-session']) {
-              this.session_ = newCookie['sora-http-session'];
-            }
+          if (newCookie['sora-http-session']) {
+            this.session_ = newCookie['sora-http-session'];
+          }
         }
       }
 
       const response: IRawResPacket = {
         opcode: OPCode.RESPONSE,
         headers: res.headers,
-        payload: res.data,
+        payload: res.data as IResPayloadPacket<unknown>,
       };
       this.emitRPCResponse(response);
     }
   }
 
-  private async handleCtx(ctx: KOAContext) {
+  private handleCtx(ctx: KOAContext) {
     const req = ctx.req;
     let body = '';
 
@@ -145,9 +145,10 @@ class HTTPConnector extends Connector {
 
       let payload = {};
       try {
-        payload = JSON.parse(body);
-      } catch (err) {
-        Runtime.frameLogger.debug('connector.http', err, { event: 'parse-body-failed', error: Logger.errorMessage(err) });
+        payload = JSON.parse(body) as Object;
+      } catch (e) {
+        const err = ExError.fromError(e as Error);
+        Runtime.frameLogger.debug('connector.http', err, {event: 'parse-body-failed', error: Logger.errorMessage(err)});
         ctx.body = {
           error: {
             code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
@@ -162,28 +163,31 @@ class HTTPConnector extends Connector {
       }
 
       if (!req.url) {
-        Runtime.frameLogger.debug('connector.http', { event: 'req-no-url' });
+        Runtime.frameLogger.debug('connector.http', {event: 'req-no-url'});
         await this.endCtx();
         return;
       }
 
       const packet: IRawNetPacket = {
         opcode: OPCode.REQUEST,
-        headers: req.headers,
+        headers: {
+          ...req.headers,
+          [RPCHeader.RPC_ID_HEADER]: 1,
+        },
         method: path.basename(req.url),
         payload,
         path: req.url
       };
       await this.handleIncomeMessage(packet, this.session, this);
       await this.endCtx();
-    }
+    };
 
     req.on('end', handleReq);
   }
 
   private async endCtx() {
     this.endCallback_();
-    this.off();
+    await this.off();
   }
 
   get promise() {
@@ -196,4 +200,4 @@ class HTTPConnector extends Connector {
   private endCallback_: () => void;
 }
 
-export {HTTPConnector}
+export {HTTPConnector};

@@ -1,4 +1,4 @@
-import {ConnectorCommand, Executor, ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
+import {ConnectorCommand, ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
 import {v4 as uuid} from 'uuid';
 import http = require('http');
 import util = require('util');
@@ -6,8 +6,8 @@ import * as WebSocket from 'ws';
 import {EventEmitter} from 'events';
 import {HTTPError, HTTPErrorCode, WebSocketConnector} from '..';
 
-// tslint:disable-next-line
-const pkg = require('../../package.json');
+// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
+const pkg: {version: string} = require('../../package.json');
 
 export interface IWebSocketListenerOptions {
   portRange?: number[];
@@ -40,7 +40,7 @@ class WebSocketListener extends Listener {
       endpoint: `ws://${this.exposeHost}:${this.usePort_}${this.options_.entryPath}`,
       state: this.state,
       labels: this.labels,
-    }
+    };
   }
 
   getSocket(session: string) {
@@ -67,10 +67,12 @@ class WebSocketListener extends Listener {
     if (this.options_.port) {
       this.usePort_ = this.options_.port;
 
-      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_))(this.usePort_, this.options_.host);
+      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
     }
 
-    this.httpServer_.on('error', this.onServerError.bind(this));
+    this.httpServer_.on('error', (err: ExError) => {
+      this.onServerError(err);
+    });
 
     return this.metaData;
   }
@@ -80,12 +82,12 @@ class WebSocketListener extends Listener {
       await connector.sendCommand(ConnectorCommand.OFF, {reason: 'listener-shutdown'});
     }
     // 要等所有 socket 由对方关闭
-    await util.promisify(this.httpServer_.close.bind(this.httpServer_))();
+    await util.promisify(this.httpServer_.close.bind(this.httpServer_) as () => void)();
     this.socketServer_ = null;
   }
 
   private onServerError(err: Error) {
-    this.lifeCycle_.setState(ListenerState.ERROR, err);
+    this.lifeCycle_.setState(ListenerState.ERROR, err).catch(Utility.null);
     Runtime.frameLogger.error('listener.web-socket', err, {event: 'web-socket-server-on-error', error: Logger.errorMessage(err)});
   }
 
@@ -96,7 +98,7 @@ class WebSocketListener extends Listener {
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
           if (this.usePort_ + 5 > max) {
-            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, `ERR_NO_AVAILABLE_PORT`));
+            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, 'ERR_NO_AVAILABLE_PORT'));
           }
 
           this.usePort_ = this.usePort_ + Utility.randomInt(0, 5);
@@ -106,7 +108,7 @@ class WebSocketListener extends Listener {
         } else {
           throw err;
         }
-      }
+      };
 
       this.httpServer_.on('error', onError);
 
@@ -130,4 +132,4 @@ class WebSocketListener extends Listener {
   private usePort_: number;
 }
 
-export {WebSocketListener}
+export {WebSocketListener};
