@@ -19,11 +19,11 @@ export interface IWebSocketListenerOptions {
 }
 
 class WebSocketListener extends Listener {
-  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, httpServer?: http.Server | null, labels: ILabels = {}) {
+  constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, labels: ILabels = {}) {
     super(callback, labels);
 
     this.options_ = options;
-    this.httpServer_ = httpServer || http.createServer();
+    this.httpServer_ = http.createServer();
     this.usePort_ = 0;
     this.socketMap_ = new Map();
     this.connectionEmitter_ = new EventEmitter();
@@ -61,18 +61,17 @@ class WebSocketListener extends Listener {
       this.newConnector(session, connector);
     });
 
+    this.httpServer_.on('error', (err: ExError) => {
+      this.onServerError(err);
+    });
+
     if (this.options_.portRange)
       await this.listenRange(this.options_.portRange[0], this.options_.portRange[1]);
 
     if (this.options_.port) {
       this.usePort_ = this.options_.port;
-
       await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
     }
-
-    this.httpServer_.on('error', (err: ExError) => {
-      this.onServerError(err);
-    });
 
     return this.metaData;
   }
