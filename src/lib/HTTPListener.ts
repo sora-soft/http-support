@@ -92,9 +92,8 @@ class HTTPListener extends Listener {
   }
 
   protected listenRange(min: number, max: number) {
+    this.usePort_ = min;
     return new Promise<void>((resolve, reject) => {
-      this.usePort_ = min + Utility.randomInt(0, 5);
-
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
           if (this.usePort_ + 5 > max) {
@@ -110,7 +109,7 @@ class HTTPListener extends Listener {
         }
       };
 
-      this.httpServer_.on('error', onError);
+      this.httpServer_.once('error', onError);
 
       this.httpServer_.once('listening', () => {
         this.httpServer_.removeListener('error', onError);

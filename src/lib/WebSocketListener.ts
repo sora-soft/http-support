@@ -48,8 +48,19 @@ class WebSocketListener extends Listener {
   }
 
   protected async listen() {
-    this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
+    if (this.options_.portRange)
+      await this.listenRange(this.options_.portRange[0], this.options_.portRange[1]);
 
+    if (this.options_.port) {
+      this.usePort_ = this.options_.port;
+      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
+    }
+
+    this.httpServer_.on('error', (err: ExError) => {
+      this.onServerError(err);
+    });
+
+    this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
     this.socketServer_.on('connection', (socket, request) => {
       if (this.state !== ListenerState.READY) {
         socket.close();
@@ -60,18 +71,6 @@ class WebSocketListener extends Listener {
       const connector = new WebSocketConnector(socket, request.socket.remoteAddress);
       this.newConnector(session, connector);
     });
-
-    this.httpServer_.on('error', (err: ExError) => {
-      this.onServerError(err);
-    });
-
-    if (this.options_.portRange)
-      await this.listenRange(this.options_.portRange[0], this.options_.portRange[1]);
-
-    if (this.options_.port) {
-      this.usePort_ = this.options_.port;
-      await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
-    }
 
     return this.metaData;
   }
@@ -91,9 +90,8 @@ class WebSocketListener extends Listener {
   }
 
   protected listenRange(min: number, max: number) {
+    this.usePort_  = min;
     return new Promise<void>((resolve, reject) => {
-      this.usePort_ = min + Utility.randomInt(0, 5);
-
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
           if (this.usePort_ + 5 > max) {
@@ -109,7 +107,7 @@ class WebSocketListener extends Listener {
         }
       };
 
-      this.httpServer_.on('error', onError);
+      this.httpServer_.once('error', onError);
 
       this.httpServer_.once('listening', () => {
         this.httpServer_.removeListener('error', onError);
