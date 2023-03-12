@@ -1,4 +1,4 @@
-import {ConnectorCommand, ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
+import {ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
 import {v4 as uuid} from 'uuid';
 import http = require('http');
 import util = require('util');
@@ -76,9 +76,6 @@ class WebSocketListener extends Listener {
   }
 
   protected async shutdown() {
-    for (const [_, connector] of this.connectors_.entries()) {
-      await connector.sendCommand(ConnectorCommand.OFF, {reason: 'listener-shutdown'});
-    }
     // 要等所有 socket 由对方关闭
     await util.promisify(this.httpServer_.close.bind(this.httpServer_) as () => void)();
     this.socketServer_ = null;
