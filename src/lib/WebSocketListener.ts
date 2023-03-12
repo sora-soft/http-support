@@ -56,10 +56,6 @@ class WebSocketListener extends Listener {
       await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
     }
 
-    this.httpServer_.on('error', (err: ExError) => {
-      this.onServerError(err);
-    });
-
     this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
     this.socketServer_.on('connection', (socket, request) => {
       if (this.state !== ListenerState.READY) {
@@ -72,12 +68,17 @@ class WebSocketListener extends Listener {
       this.newConnector(session, connector);
     });
 
+    this.socketServer_.on('error', (err: ExError) => {
+      this.onServerError(err);
+    });
+
     return this.metaData;
   }
 
   protected async shutdown() {
     // 要等所有 socket 由对方关闭
-    await util.promisify(this.httpServer_.close.bind(this.httpServer_) as () => void)();
+    if (this.socketServer_)
+      await util.promisify(this.socketServer_.close.bind(this.socketServer_) as () => void)();
     this.socketServer_ = null;
   }
 
@@ -91,11 +92,11 @@ class WebSocketListener extends Listener {
     return new Promise<void>((resolve, reject) => {
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
-          if (this.usePort_ + 5 > max) {
-            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, 'ERR_NO_AVAILABLE_PORT'));
-          }
-
           this.usePort_ = this.usePort_ + Utility.randomInt(0, 5);
+          if (this.usePort_ > max) {
+            reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, 'ERR_NO_AVAILABLE_PORT'));
+            return;
+          }
           await Time.timeout(100);
 
           this.httpServer_.listen(this.usePort_, this.options_.host);
@@ -104,7 +105,7 @@ class WebSocketListener extends Listener {
         }
       };
 
-      this.httpServer_.once('error', onError);
+      this.httpServer_.on('error', onError);
 
       this.httpServer_.once('listening', () => {
         this.httpServer_.removeListener('error', onError);

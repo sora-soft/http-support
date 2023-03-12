@@ -15,7 +15,7 @@ export interface IHTTPListenerOptions {
   port?: number;
   host: string;
   labels?: ILabels;
-  expose?: string;
+  exposeHost?: string;
 }
 
 class HTTPListener extends Listener {
@@ -41,8 +41,8 @@ class HTTPListener extends Listener {
   }
 
   get endpoint() {
-    if (this.options_.expose) {
-      return `http://${this.options_.expose}:${this.usePort_}`;
+    if (this.options_.exposeHost) {
+      return `http://${this.options_.exposeHost}:${this.usePort_}`;
     }
     return `http://${this.options_.host}:${this.usePort_}`;
   }
@@ -73,10 +73,11 @@ class HTTPListener extends Listener {
 
       await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
 
-      this.httpServer_.on('error', (err: ExError) => {
-        this.onServerError(err);
-      });
     }
+
+    this.httpServer_.on('error', (err: ExError) => {
+      this.onServerError(err);
+    });
 
     return {
       id: this.id,
@@ -96,11 +97,12 @@ class HTTPListener extends Listener {
     return new Promise<void>((resolve, reject) => {
       const onError = async (err: ExError) => {
         if (err.code === 'EADDRINUSE') {
-          if (this.usePort_ + 5 > max) {
+          this.usePort_ = this.usePort_ + Utility.randomInt(0, 5);
+          if (this.usePort_ > max) {
             reject(new HTTPError(HTTPErrorCode.ERR_NO_AVAILABLE_PORT, 'ERR_NO_AVAILABLE_PORT'));
+            return;
           }
 
-          this.usePort_ = this.usePort_ + Utility.randomInt(0, 5);
           await Time.timeout(100);
 
           this.httpServer_.listen(this.usePort_, this.options_.host);
@@ -109,7 +111,7 @@ class HTTPListener extends Listener {
         }
       };
 
-      this.httpServer_.once('error', onError);
+      this.httpServer_.on('error', onError);
 
       this.httpServer_.once('listening', () => {
         this.httpServer_.removeListener('error', onError);
