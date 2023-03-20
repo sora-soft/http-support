@@ -1,14 +1,17 @@
 import {ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
-import http = require('http');
-import {HTTPError} from './HTTPError';
-import {HTTPErrorCode} from './HTTPErrorCode';
-import util = require('util');
-import Koa = require('koa');
+import http from 'http';
+import {HTTPError} from './HTTPError.js';
+import {HTTPErrorCode} from './HTTPErrorCode.js';
+import util from 'util';
+import Koa from 'koa';
 import {v4 as uuid} from 'uuid';
-import {HTTPConnector} from './HTTPConnector';
+import {HTTPConnector} from './HTTPConnector.js';
+import {readFile} from 'fs/promises';
+import {TypeGuard} from '@sora-soft/type-guard';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
-const pkg: {version: string} = require('../../package.json');
+const pkg = JSON.parse(
+  await readFile(new URL('../../package.json', import.meta.url), {encoding: 'utf-8'})
+) as {version: string};
 
 export interface IHTTPListenerOptions {
   portRange?: number[];
@@ -21,6 +24,8 @@ export interface IHTTPListenerOptions {
 class HTTPListener extends Listener {
   constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, labels: ILabels = {}) {
     super(callback, labels);
+
+    TypeGuard.assertType<IHTTPListenerOptions>(options);
 
     this.options_ = options;
 

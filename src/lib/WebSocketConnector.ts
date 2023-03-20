@@ -1,8 +1,8 @@
 import {Connector, AbortError, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, Logger, NodeTime, Retry, RetryEvent, RPCError, RPCErrorCode, RPCSender, Runtime, Utility, ExError} from '@sora-soft/framework';
-import {Context} from '@sora-soft/framework/dist/lib/Context';
-import {is} from 'typescript-is';
-import * as WebSocket from 'ws';
-import util = require('util');
+import {Context} from '@sora-soft/framework';
+import WebSocket from 'ws';
+import util from 'util';
+import {TypeGuard} from '@sora-soft/type-guard';
 
 const PROTOCOL = 'ws';
 
@@ -130,7 +130,7 @@ class WebSocketConnector extends Connector {
       if (!packet)
         return;
 
-      if (!is<IRawNetPacket>(packet)) {
+      if (!TypeGuard.valid<IRawNetPacket>(packet)) {
         const err = new RPCError(RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED, 'ERR_RPC_BODY_PARSE_FAILED');
         Runtime.frameLogger.error('connector.websocket', err, {event: 'connector-body-invalid', packet});
       }

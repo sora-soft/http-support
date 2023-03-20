@@ -1,11 +1,11 @@
 import {Connector, ConnectorState, ExError, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, IResPayloadPacket, Logger, OPCode, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime, Utility} from '@sora-soft/framework';
 import axios, {AxiosInstance} from 'axios';
-import Koa = require('koa');
-import path = require('path');
-import cookie = require('cookie');
-import {is} from 'typescript-is';
-import {HTTPError} from './HTTPError';
-import {HTTPErrorCode} from './HTTPErrorCode';
+import Koa from 'koa';
+import path from 'path';
+import cookie from 'cookie';
+import {HTTPError} from './HTTPError.js';
+import {HTTPErrorCode} from './HTTPErrorCode.js';
+import {TypeGuard} from '@sora-soft/type-guard';
 
 export type KOAContext = Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>;
 
@@ -64,7 +64,7 @@ class HTTPConnector extends Connector {
 
   async send(packet: IRawNetPacket) {
     if (this.ctx_) {
-      if (!is<IRawResPacket<unknown>>(packet)) {
+      if (!TypeGuard.valid<IRawResPacket<unknown>>(packet)) {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, 'ERR_HTTP_NOT_SUPPORT_SEND_REQUEST');
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
@@ -81,7 +81,7 @@ class HTTPConnector extends Connector {
         throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
       }
 
-      if (!is<IRawReqPacket>(packet)) {
+      if (!TypeGuard.valid<IRawReqPacket>(packet)) {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST, 'ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST');
       }
 

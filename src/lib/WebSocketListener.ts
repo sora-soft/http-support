@@ -1,13 +1,18 @@
 import {ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Runtime, Time, Utility} from '@sora-soft/framework';
 import {v4 as uuid} from 'uuid';
-import http = require('http');
-import util = require('util');
-import * as WebSocket from 'ws';
+import http from 'http';
+import util from 'util';
+import WebSocket from 'ws';
 import {EventEmitter} from 'events';
-import {HTTPError, HTTPErrorCode, WebSocketConnector} from '..';
+import {readFile} from 'fs/promises';
+import {WebSocketConnector} from './WebSocketConnector.js';
+import {HTTPError} from './HTTPError.js';
+import {HTTPErrorCode} from './HTTPErrorCode.js';
+import {TypeGuard} from '@sora-soft/type-guard';
 
-// eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-var-requires
-const pkg: {version: string} = require('../../package.json');
+const pkg = JSON.parse(
+  await readFile(new URL('../../package.json', import.meta.url), {encoding: 'utf-8'})
+) as {version: string};
 
 export interface IWebSocketListenerOptions {
   portRange?: number[];
@@ -22,6 +27,7 @@ class WebSocketListener extends Listener {
   constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, labels: ILabels = {}) {
     super(callback, labels);
 
+    TypeGuard.assertType<IWebSocketListenerOptions>(options);
     this.options_ = options;
     this.httpServer_ = http.createServer();
     this.usePort_ = 0;
