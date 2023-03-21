@@ -2,7 +2,7 @@ import {ExError, ILabels, Listener, ListenerCallback, ListenerState, Logger, Run
 import {v4 as uuid} from 'uuid';
 import http from 'http';
 import util from 'util';
-import WebSocket from 'ws';
+import {WebSocketServer} from 'ws';
 import {EventEmitter} from 'events';
 import {readFile} from 'fs/promises';
 import {WebSocketConnector} from './WebSocketConnector.js';
@@ -62,7 +62,7 @@ class WebSocketListener extends Listener {
       await util.promisify<number, string, void>(this.httpServer_.listen.bind(this.httpServer_) as (port: number, host: string) => void)(this.usePort_, this.options_.host);
     }
 
-    this.socketServer_ = new WebSocket.Server({server: this.httpServer_, path: this.options_.entryPath});
+    this.socketServer_ = new WebSocketServer({server: this.httpServer_, path: this.options_.entryPath});
     this.socketServer_.on('connection', (socket, request) => {
       if (this.state !== ListenerState.READY) {
         socket.close();
@@ -128,7 +128,7 @@ class WebSocketListener extends Listener {
 
   private options_: IWebSocketListenerOptions;
   private httpServer_: http.Server;
-  private socketServer_: WebSocket.Server | null;
+  private socketServer_: WebSocketServer | null;
   private socketMap_: Map<string, WebSocket>;
   private usePort_: number;
 }
