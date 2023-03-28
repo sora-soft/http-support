@@ -27,7 +27,7 @@ class WebSocketListener extends Listener {
   constructor(options: IWebSocketListenerOptions, callback: ListenerCallback, labels: ILabels = {}) {
     super(callback, labels);
 
-    TypeGuard.assertType<IWebSocketListenerOptions>(options);
+    TypeGuard.assert<IWebSocketListenerOptions>(options);
     this.options_ = options;
     this.httpServer_ = http.createServer();
     this.usePort_ = 0;

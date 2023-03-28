@@ -25,7 +25,7 @@ class HTTPListener extends Listener {
   constructor(options: IHTTPListenerOptions, koa: Koa, callback: ListenerCallback, labels: ILabels = {}) {
     super(callback, labels);
 
-    TypeGuard.assertType<IHTTPListenerOptions>(options);
+    TypeGuard.assert<IHTTPListenerOptions>(options);
 
     this.options_ = options;
 

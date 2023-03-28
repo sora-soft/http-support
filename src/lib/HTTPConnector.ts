@@ -64,7 +64,7 @@ class HTTPConnector extends Connector {
 
   async send(packet: IRawNetPacket) {
     if (this.ctx_) {
-      if (!TypeGuard.valid<IRawResPacket<unknown>>(packet)) {
+      if (!TypeGuard.is<IRawResPacket<unknown>>(packet)) {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, 'ERR_HTTP_NOT_SUPPORT_SEND_REQUEST');
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
@@ -81,7 +81,7 @@ class HTTPConnector extends Connector {
         throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
       }
 
-      if (!TypeGuard.valid<IRawReqPacket>(packet)) {
+      if (!TypeGuard.is<IRawReqPacket>(packet)) {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST, 'ERR_HTTP_CONNECTOR_ONLY_SPPORT_REQUEST');
       }
 
