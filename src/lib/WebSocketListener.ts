@@ -33,6 +33,7 @@ class WebSocketListener extends Listener {
     this.usePort_ = 0;
     this.socketMap_ = new Map();
     this.connectionEmitter_ = new EventEmitter();
+    this.socketServer_ = null;
   }
 
   get exposeHost() {

@@ -15,6 +15,7 @@ class WebSocketConnector extends Connector {
 
   constructor(socket?: WebSocket, endpoint?: string) {
     super({ping: {enabled: true}});
+    this.socket_ = null;
     if (socket && endpoint) {
       this.socket_ = socket;
       this.bindSocketEvent(this.socket_);
@@ -84,10 +85,10 @@ class WebSocketConnector extends Connector {
 
   async sendRaw(packet: Object): Promise<void> {
     if (!this.isAvailable())
-      throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
+      throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_?.endpoint || 'unknown'}`);
 
     if (!this.socket_)
-      throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
+      throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_?.endpoint || 'unknown'}`);
 
     await util.promisify<string, void>(this.socket_.send.bind(this.socket_) as (buf: string) => void)(JSON.stringify(packet)).catch((err: Error) => {
       throw new RPCError(RPCErrorCode.ERR_RPC_SENDER_INNER, `ERR_RPC_SENDER_INNER, err=${err.message}`);
@@ -133,7 +134,9 @@ class WebSocketConnector extends Connector {
       if (!TypeGuard.is<IRawNetPacket>(packet)) {
         const err = new RPCError(RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED, 'ERR_RPC_BODY_PARSE_FAILED');
         Runtime.frameLogger.error('connector.websocket', err, {event: 'connector-body-invalid', packet});
+        return;
       }
+
       this.handleIncomeMessage(packet, this.session, this).catch((err: ExError) => {
         Runtime.frameLogger.error('connector.websocket', err, {event: 'connector-handle-income-message-error', error: Logger.errorMessage(err)});
       });

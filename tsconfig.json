@@ -11,6 +11,7 @@
     "downlevelIteration": true,
     "experimentalDecorators": true,
     "emitDecoratorMetadata": true,
+    "strictPropertyInitialization": true,
     "plugins": [{
       "transform": "@sora-soft/type-guard/dist/transformer"
     }]

@@ -1,7 +1,6 @@
 import {Connector, ConnectorState, ExError, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, IResPayloadPacket, Logger, OPCode, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime, Utility} from '@sora-soft/framework';
-import axios, {AxiosInstance} from 'axios';
+import axios, {AxiosHeaders, AxiosInstance} from 'axios';
 import Koa from 'koa';
-import path from 'path';
 import cookie from 'cookie';
 import {HTTPError} from './HTTPError.js';
 import {HTTPErrorCode} from './HTTPErrorCode.js';
@@ -20,6 +19,9 @@ class HTTPConnector extends Connector {
     super({
       ping: {enabled: false}
     });
+    this.ctx_ = null;
+    this.client_ = null;
+    this.ctxPromise_ = null;
     if (ctx) {
       this.ctx_ = ctx;
 
@@ -69,7 +71,9 @@ class HTTPConnector extends Connector {
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.cookies.set('sora-http-session', this.session);
-      this.ctx_.res.setHeader('sora-http-session', this.session);
+      if (this.session)
+        this.ctx_.res.setHeader('sora-http-session', this.session);
+
       for (const [header, content] of Object.entries(packet.headers)) {
         if (typeof content === 'string') {
           this.ctx_.res.setHeader(header, content);
@@ -78,7 +82,7 @@ class HTTPConnector extends Connector {
       this.ctx_.body = JSON.stringify(packet.payload || {});
     } else {
       if (!this.client_) {
-        throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_.endpoint}`);
+        throw new RPCError(RPCErrorCode.ERR_RPC_TUNNEL_NOT_AVAILABLE, `ERR_RPC_TUNNEL_NOT_AVAILABLE, endpoint=${this.target_?.endpoint || 'unknown'}`);
       }
 
       if (!TypeGuard.is<IRawReqPacket>(packet)) {
@@ -90,8 +94,8 @@ class HTTPConnector extends Connector {
         headers.cookie = `sora-http-session=${this.session}`;
       }
 
-      const res = await this.client_.post(`${packet.path}`, packet.payload, {
-        headers,
+      const res = await this.client_.post(`${packet.service}/${packet.method}`, packet.payload, {
+        headers: headers as AxiosHeaders,
       });
 
       if (res.status !== axios.HttpStatusCode.Ok) {
@@ -168,16 +172,26 @@ class HTTPConnector extends Connector {
         return;
       }
 
+      const pathArray = req.url.split('/');
+      const method = pathArray.at(-1);
+      const service = pathArray.at(-2) || '';
+      if (!method) {
+        Runtime.frameLogger.debug('connector.http', {event: 'parse-url-failed', url: req.url});
+        return;
+      }
+
       const packet: IRawNetPacket = {
         opcode: OPCode.REQUEST,
         headers: {
           ...req.headers,
           [RPCHeader.RPC_ID_HEADER]: 1,
         },
-        method: path.basename(req.url),
+        method,
+        service,
         payload,
-        path: req.url
+        // path: req.url
       };
+
       await this.handleIncomeMessage(packet, this.session, this);
       await this.endCtx();
     };
@@ -186,7 +200,9 @@ class HTTPConnector extends Connector {
   }
 
   private async endCtx() {
-    this.endCallback_();
+    if (this.endCallback_) {
+      this.endCallback_();
+    }
     await this.off();
   }
 
@@ -195,9 +211,9 @@ class HTTPConnector extends Connector {
   }
 
   private ctx_: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any> | null;
-  private ctxPromise_: Promise<void>;
+  private ctxPromise_: Promise<void> | null;
   private client_: AxiosInstance | null;
-  private endCallback_: () => void;
+  private endCallback_?: () => void;
 }
 
 export {HTTPConnector};

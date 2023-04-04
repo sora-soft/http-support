@@ -46,10 +46,7 @@ class HTTPListener extends Listener {
   }
 
   get endpoint() {
-    if (this.options_.exposeHost) {
-      return `http://${this.options_.exposeHost}:${this.usePort_}`;
-    }
-    return `http://${this.options_.host}:${this.usePort_}`;
+    return `http://${this.options_.exposeHost || this.options_.host}:${this.usePort_}`;
   }
 
   get version () {
