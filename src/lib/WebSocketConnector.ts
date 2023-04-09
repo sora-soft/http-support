@@ -147,6 +147,10 @@ class WebSocketConnector extends Connector {
     return !!(this.socket_ && this.socket_.readyState === WebSocket.OPEN);
   }
 
+  get protocol() {
+    return PROTOCOL;
+  }
+
   private socket_: WebSocket | null;
 }
 

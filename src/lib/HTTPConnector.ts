@@ -210,6 +210,10 @@ class HTTPConnector extends Connector {
     return this.ctxPromise_;
   }
 
+  get protocol() {
+    return 'http';
+  }
+
   private ctx_: Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any> | null;
   private ctxPromise_: Promise<void> | null;
   private client_: AxiosInstance | null;
