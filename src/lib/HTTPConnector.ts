@@ -5,6 +5,7 @@ import cookie from 'cookie';
 import {HTTPError} from './HTTPError.js';
 import {HTTPErrorCode} from './HTTPErrorCode.js';
 import {TypeGuard} from '@sora-soft/type-guard';
+import {HTTPHeader} from './HTTPHeader.js';
 
 export type KOAContext = Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>;
 
@@ -57,6 +58,7 @@ class HTTPConnector extends Connector {
 
   async sendRaw(packet: Object) {
     if (this.ctx_) {
+      this.ctx_.cookies.set('sora-http-session', this.session);
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.body = JSON.stringify(packet || {});
     } else {
@@ -70,11 +72,14 @@ class HTTPConnector extends Connector {
         throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_SEND_REQUEST, 'ERR_HTTP_NOT_SUPPORT_SEND_REQUEST');
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
-      this.ctx_.cookies.set('sora-http-session', this.session);
       if (this.session)
         this.ctx_.res.setHeader('sora-http-session', this.session);
 
       for (const [header, content] of Object.entries(packet.headers)) {
+        if (header === HTTPHeader.HttpResStatusCodeHeader) {
+          this.ctx_.res.statusCode = content as number;
+          continue;
+        }
         if (typeof content === 'string') {
           this.ctx_.res.setHeader(header, content);
         }

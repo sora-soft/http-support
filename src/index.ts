@@ -4,3 +4,4 @@ export * from './lib/HTTPListener.js';
 export * from './lib/WebSocketListener.js';
 export * from './lib/WebSocketConnector.js';
 export * from './lib/HTTPConnector.js';
+export * from './lib/HTTPHeader.js';
