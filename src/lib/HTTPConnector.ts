@@ -66,11 +66,11 @@ class HTTPConnector extends Connector {
   async sendRaw(packet: IHttpRawResponse<unknown>) {
     if (this.ctx_) {
       this.ctx_.cookies.set('sora-http-session', this.session);
-      this.ctx_.res.setHeader('Content-Type', 'application/json');
       for (const [header, value] of Object.entries(packet.headers)) {
         this.ctx_.res.setHeader(header, value);
       }
-      this.ctx_.res.statusCode = packet.status;
+      this.ctx_.res.setHeader('Content-Type', 'application/json');
+      this.ctx_.status = packet.status;
       this.ctx_.body = JSON.stringify(packet.payload || {});
     } else {
       throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_RAW, 'ERR_HTTP_NOT_SUPPORT_RAW');
@@ -88,7 +88,7 @@ class HTTPConnector extends Connector {
 
       for (const [header, content] of Object.entries(packet.headers)) {
         if (header === HTTPHeader.HttpResStatusCodeHeader) {
-          this.ctx_.res.statusCode = content as number;
+          this.ctx_.status = content as number;
           continue;
         }
         if (typeof content === 'string') {
