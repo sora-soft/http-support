@@ -8,6 +8,13 @@ import {TypeGuard} from '@sora-soft/type-guard';
 import {HTTPHeader} from './HTTPHeader.js';
 
 export type KOAContext = Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>;
+export interface IHttpRawResponse<T> {
+  status: number;
+  headers: {
+    [k: string]: string;
+  };
+  payload: T;
+}
 
 class HTTPConnector extends Connector {
   static register() {
@@ -56,11 +63,15 @@ class HTTPConnector extends Connector {
     this.client_ = null;
   }
 
-  async sendRaw(packet: Object) {
+  async sendRaw(packet: IHttpRawResponse<unknown>) {
     if (this.ctx_) {
       this.ctx_.cookies.set('sora-http-session', this.session);
       this.ctx_.res.setHeader('Content-Type', 'application/json');
-      this.ctx_.body = JSON.stringify(packet || {});
+      for (const [header, value] of Object.entries(packet.headers)) {
+        this.ctx_.res.setHeader(header, value);
+      }
+      this.ctx_.res.statusCode = packet.status;
+      this.ctx_.body = JSON.stringify(packet.payload || {});
     } else {
       throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_RAW, 'ERR_HTTP_NOT_SUPPORT_RAW');
     }
