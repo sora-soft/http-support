@@ -157,29 +157,33 @@ class HTTPConnector extends Connector {
         return;
       }
 
-      if (ctx.method !== 'POST') {
-        ctx.response.status = 405;
-        await this.endCtx();
-        return;
-      }
-
       let payload = {};
-      try {
-        payload = JSON.parse(body) as Object;
-      } catch (e) {
-        const err = ExError.fromError(e as Error);
-        Runtime.frameLogger.debug('connector.http', err, {event: 'parse-body-failed', error: Logger.errorMessage(err)});
-        ctx.body = {
-          error: {
-            code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-            level: err.level,
-            message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-            name: err.name,
-          },
-          result: null
-        };
-        await this.endCtx();
-        return;
+      switch(ctx.method) {
+        case 'GET': {
+          payload = ctx.query;
+          break;
+        }
+        case 'PUT':
+        case 'POST': {
+          try {
+            payload = JSON.parse(body) as Object;
+          } catch (e) {
+            const err = ExError.fromError(e as Error);
+            Runtime.frameLogger.debug('connector.http', err, {event: 'parse-body-failed', error: Logger.errorMessage(err)});
+            ctx.body = {
+              error: {
+                code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                level: err.level,
+                message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                name: err.name,
+              },
+              result: null
+            };
+            await this.endCtx();
+            return;
+          }
+          break;
+        }
       }
 
       if (!req.url) {
@@ -201,11 +205,11 @@ class HTTPConnector extends Connector {
         headers: {
           ...req.headers,
           [RPCHeader.RPC_ID_HEADER]: 1,
+          [HTTPHeader.HttpMethodHeader]: ctx.method.toLocaleLowerCase(),
         },
         method,
         service,
         payload,
-        // path: req.url
       };
 
       await this.handleIncomeMessage(packet, this.session, this);
