@@ -192,7 +192,8 @@ class HTTPConnector extends Connector {
         return;
       }
 
-      const pathArray = req.url.split('/');
+      const reqURL = new URL(req.url, 'https://sora-software.com/');
+      const pathArray = reqURL.pathname.split('/');
       const method = pathArray.at(-1);
       const service = pathArray.at(-2) || '';
       if (!method) {
