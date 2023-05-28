@@ -3,7 +3,6 @@ import {v4 as uuid} from 'uuid';
 import http from 'http';
 import util from 'util';
 import {WebSocketServer} from 'ws';
-import {EventEmitter} from 'events';
 import {readFile} from 'fs/promises';
 import {WebSocketConnector} from './WebSocketConnector.js';
 import {HTTPError} from './HTTPError.js';
@@ -32,7 +31,6 @@ class WebSocketListener extends Listener {
     this.httpServer_ = http.createServer();
     this.usePort_ = 0;
     this.socketMap_ = new Map();
-    this.connectionEmitter_ = new EventEmitter();
     this.socketServer_ = null;
   }
 
@@ -90,7 +88,7 @@ class WebSocketListener extends Listener {
   }
 
   private onServerError(err: Error) {
-    this.lifeCycle_.setState(ListenerState.ERROR, err);
+    this.lifeCycle_.setState(ListenerState.ERROR);
     Runtime.frameLogger.error('listener.web-socket', err, {event: 'web-socket-server-on-error', error: Logger.errorMessage(err)});
   }
 
