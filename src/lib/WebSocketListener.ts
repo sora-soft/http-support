@@ -90,7 +90,7 @@ class WebSocketListener extends Listener {
   }
 
   private onServerError(err: Error) {
-    this.lifeCycle_.setState(ListenerState.ERROR, err).catch(Utility.null);
+    this.lifeCycle_.setState(ListenerState.ERROR, err);
     Runtime.frameLogger.error('listener.web-socket', err, {event: 'web-socket-server-on-error', error: Logger.errorMessage(err)});
   }
 

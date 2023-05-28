@@ -1,4 +1,4 @@
-import {Connector, ConnectorState, ExError, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, IResPayloadPacket, Logger, OPCode, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime, Utility} from '@sora-soft/framework';
+import {Connector, ConnectorState, ExError, IListenerInfo, IRawNetPacket, IRawReqPacket, IRawResPacket, IResPayloadPacket, Logger, OPCode, RPCError, RPCErrorCode, RPCHeader, RPCSender, Runtime} from '@sora-soft/framework';
 import axios, {AxiosHeaders, AxiosInstance} from 'axios';
 import Koa from 'koa';
 import cookie from 'cookie';
@@ -33,7 +33,7 @@ class HTTPConnector extends Connector {
     if (ctx) {
       this.ctx_ = ctx;
 
-      this.lifeCycle_.setState(ConnectorState.READY).catch(Utility.null);
+      this.lifeCycle_.setState(ConnectorState.READY);
       this.target_ = {
         protocol: 'http',
         endpoint: `${ctx.request.ip}`,

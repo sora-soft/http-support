@@ -90,7 +90,7 @@ class HTTPListener extends Listener {
   }
 
   private onServerError(err: Error) {
-    this.lifeCycle_.setState(ListenerState.ERROR, err).catch(Utility.null);
+    this.lifeCycle_.setState(ListenerState.ERROR, err);
     Runtime.frameLogger.error('listener.http', err, {event: 'http-server-on-error', error: Logger.errorMessage(err)});
   }
 

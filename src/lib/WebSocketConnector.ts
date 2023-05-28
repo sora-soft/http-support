@@ -1,4 +1,4 @@
-import {Connector, AbortError, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, Logger, NodeTime, Retry, RetryEvent, RPCError, RPCErrorCode, RPCSender, Runtime, Utility, ExError} from '@sora-soft/framework';
+import {Connector, AbortError, ConnectorState, IConnectorPingOptions, IListenerInfo, IRawNetPacket, Logger, NodeTime, Retry, RetryEvent, RPCError, RPCErrorCode, RPCSender, Runtime, ExError} from '@sora-soft/framework';
 import {Context} from '@sora-soft/framework';
 import WebSocket from 'ws';
 import util from 'util';
@@ -19,7 +19,7 @@ class WebSocketConnector extends Connector {
     if (socket && endpoint) {
       this.socket_ = socket;
       this.bindSocketEvent(this.socket_);
-      this.lifeCycle_.setState(ConnectorState.READY).catch(Utility.null);
+      this.lifeCycle_.setState(ConnectorState.READY);
       this.target_ = {
         protocol: PROTOCOL,
         endpoint,

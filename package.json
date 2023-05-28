@@ -37,7 +37,7 @@
     ]
   },
   "dependencies": {
-    "@sora-soft/framework": "^1.10.9",
+    "@sora-soft/framework": "^1.12.0",
     "@sora-soft/type-guard": "^1.1.1",
     "axios": "^1.3.2",
     "cookie": "^0.4.2",
