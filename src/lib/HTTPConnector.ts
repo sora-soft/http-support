@@ -6,6 +6,7 @@ import {HTTPError} from './HTTPError.js';
 import {HTTPErrorCode} from './HTTPErrorCode.js';
 import {TypeGuard} from '@sora-soft/type-guard';
 import {HTTPHeader} from './HTTPHeader.js';
+import {XMLParser} from 'fast-xml-parser';
 
 export type KOAContext = Koa.ParameterizedContext<Koa.DefaultState, Koa.DefaultContext, any>;
 export interface IHttpRawResponse<T> {
@@ -71,7 +72,7 @@ class HTTPConnector extends Connector {
       }
       this.ctx_.res.setHeader('Content-Type', 'application/json');
       this.ctx_.status = packet.status;
-      this.ctx_.body = JSON.stringify(packet.payload || {});
+      this.ctx_.body = packet.payload;
     } else {
       throw new HTTPError(HTTPErrorCode.ERR_HTTP_NOT_SUPPORT_RAW, 'ERR_HTTP_NOT_SUPPORT_RAW');
     }
@@ -165,22 +166,56 @@ class HTTPConnector extends Connector {
         }
         case 'PUT':
         case 'POST': {
-          try {
-            payload = JSON.parse(body) as Object;
-          } catch (e) {
-            const err = ExError.fromError(e as Error);
-            Runtime.frameLogger.debug('connector.http', err, {event: 'parse-body-failed', error: Logger.errorMessage(err)});
-            ctx.body = {
-              error: {
-                code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-                level: err.level,
-                message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
-                name: err.name,
-              },
-              result: null
-            };
-            await this.endCtx();
-            return;
+          switch (ctx.header['content-type']?.split(';')[0]) {
+            case 'application/json': {
+              try {
+                payload = JSON.parse(body) as Object;
+                payload = {
+                  ...payload,
+                  ...ctx.query,
+                };
+              } catch (e) {
+                const err = ExError.fromError(e as Error);
+                Runtime.frameLogger.debug('connector.http', err, {event: 'parse-json-body-failed', body, error: Logger.errorMessage(err)});
+                ctx.body = {
+                  error: {
+                    code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                    level: err.level,
+                    message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                    name: err.name,
+                  },
+                  result: null
+                };
+                await this.endCtx();
+                return;
+              }
+              break;
+            }
+            case 'text/xml': {
+              try {
+                const parser = new XMLParser();
+                const decoded = parser.parse(body) as {xml: Object};
+                payload = {
+                  ...decoded.xml,
+                  ...ctx.query,
+                } as Object;
+              } catch (e) {
+                const err = ExError.fromError(e as Error);
+                Runtime.frameLogger.debug('connector.http', err, {event: 'parse-xml-body-failed', body, error: Logger.errorMessage(err)});
+                ctx.body = {
+                  error: {
+                    code: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                    level: err.level,
+                    message: RPCErrorCode.ERR_RPC_BODY_PARSE_FAILED,
+                    name: err.name,
+                  },
+                  result: null
+                };
+                await this.endCtx();
+                return;
+              }
+              break;
+            }
           }
           break;
         }
