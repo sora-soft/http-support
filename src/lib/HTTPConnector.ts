@@ -146,10 +146,10 @@ class HTTPConnector extends Connector {
 
   private handleCtx(ctx: KOAContext) {
     const req = ctx.req;
-    let body = '';
+    const cache: Uint8Array[] = [];
 
-    req.on('data', (chunk) => {
-      body += chunk;
+    req.on('data', (chunk: Uint8Array) => {
+      cache.push(chunk);
     });
     const handleReq = async () => {
       if (ctx.method === 'OPTIONS') {
@@ -157,6 +157,8 @@ class HTTPConnector extends Connector {
         await this.endCtx();
         return;
       }
+
+      const body = Buffer.concat(cache).toString();
 
       let payload = {};
       switch(ctx.method) {
